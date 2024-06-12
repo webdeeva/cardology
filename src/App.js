@@ -300,7 +300,7 @@ const handleSevenWeeklyPlateClick = () => {
       <label>
         Enter Birthdate:
         <input type="date" value={birthdate} onChange={handleBirthdateChange} />
-      </label>      <button onClick={handleWeeklyPlateClick}>Show Weekly Plate</button><button onClick={handleSevenWeeklyPlateClick}>Show 7 Weekly Plate</button>
+      </label>      <button onClick={handleWeeklyPlateClick}>Show Weekly Plate</button> <button onClick={handleSevenWeeklyPlateClick}>Show 7 Weekly Plate</button>
 
       <table border="1">
         <tbody>
