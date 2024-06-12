@@ -24,7 +24,6 @@
   color: #61dafb;
 }
 tr:last-child td {
-  display: flex;
   justify-content: center;
   align-items: center;
 }
