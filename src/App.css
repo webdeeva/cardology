@@ -99,6 +99,7 @@ td {
 }
 .table-container {
   overflow-x: auto;
+  padding:10px;
 }
 
 
@@ -113,6 +114,9 @@ table {
   width: 98%;
   border-collapse: collapse;
 padding:2px;
+}
+  .table-container {
+  padding:10px;
 }
 .static-data {
   display: flex;
