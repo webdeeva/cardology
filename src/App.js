@@ -194,6 +194,7 @@ const App = () => {
   };
 
   const handleBirthdateChange = (e) => {
+      e.preventDefault(); // Prevent the default form submission
     const inputBirthdate = e.target.value;
     setBirthdate(inputBirthdate);
     const card = getCardForBirthday(inputBirthdate);
