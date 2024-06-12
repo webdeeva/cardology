@@ -112,6 +112,7 @@ table {
   width: 100%;
   border-collapse: collapse;
 padding:2px;
+  margin:10px;
 }
 .static-data {
   display: flex;
