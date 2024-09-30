@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
 import './App.css';
-import birthdayCardMapping from './birthdayCardMapping.json'; // Ensure this path is correct
-import cardData from './cardData.json'; // Ensure this path is correct
+import birthdayCardMapping from './birthdayCardMapping.json';
+import cardData from './cardData.json';
 import Modal from 'react-modal';
+import { ChakraProvider, Box, Heading, Select, Input, Flex, VStack, Button } from '@chakra-ui/react';
+import WeeklyReadingPanel from './components/WeeklyReadingPanel';
+import cardData2 from './cards.json';
+
 
 // Static Data Mapping
 const staticDataMapping = {
@@ -166,6 +170,16 @@ const findCardPositionInSpread = (card, spread) => {
   return null;
 };
 
+const findCardPosition = (card, spread) => {
+  for (let row of spread) {
+    for (let cell of row) {
+      if (cell.value === card) {
+        return parseInt(cell.staticData[2]);
+      }
+    }
+  }
+  return null;
+};
 
 const isPlanetSymbol = (symbol) => {
   return /[☉☿♀♂♃♄♅♆]/.test(symbol);
@@ -180,33 +194,117 @@ const getCardColor = (card) => {
   return 'black';
 };
 
+const getNext12Positions = (startPosition) => {
+  const positions = [];
+  for (let i = 0; i < 12; i++) {
+    positions.push(((startPosition + i) % 52) + 1);
+  }
+  return positions;
+};
+
+// Function to calculate planetary days based on birth day of the week
+function calculatePlanetaryDays(birthDate) {
+  const planets = ['Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune'];
+
+  // Current date
+  const today = new Date();
+  
+  // Get the day of the week on which the person was born (0 = Sunday, 6 = Saturday)
+  const birthDayOfWeek = birthDate.getDay();
+  
+  // Get today’s day of the week
+  const todayDayOfWeek = today.getDay();
+  
+  // Adjust Mercury day: Find the most recent Mercury day that aligns with the weekly spread's starting day
+  let mercuryDay = new Date(today);
+
+  // Adjust the starting day for Mercury (the birth day of the week)
+  mercuryDay.setDate(today.getDate() - ((todayDayOfWeek - birthDayOfWeek + 7) % 7) + 1); // Added +1 to push the day forward
+
+  const planetaryDays = [];
+
+  // Loop through planets and assign days based on the Mercury day
+  planets.forEach((planet, index) => {
+    let planetDay = new Date(mercuryDay);
+    planetDay.setDate(mercuryDay.getDate() + index); // Set the next planetary day
+    planetaryDays.push({
+      planet: planet,
+      date: planetDay.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' })
+    });
+  });
+
+  return planetaryDays;
+}
+
+
+
 const App = () => {
   const [selectedPlate, setSelectedPlate] = useState(0);
   const [birthdate, setBirthdate] = useState('');
   const [highlightedCards, setHighlightedCards] = useState([]);
+  const [highlightedPositions, setHighlightedPositions] = useState([]);
   const [clickedCards, setClickedCards] = useState([]);
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [modalCardData, setModalCardData] = useState(null);
+  const [weeklyPlanetCards, setWeeklyPlanetCards] = useState([]);
+  const [weeklyPlanetDates, setWeeklyPlanetDates] = useState([]);
   const spreads = generateAllSpreads();
+  const [planetaryDays, setPlanetaryDays] = useState([]);
+  const [isReadingPanelOpen, setIsReadingPanelOpen] = useState(false);
+
 
   const handlePlateChange = (e) => {
-    setSelectedPlate(Number(e.target.value));
+    const newPlate = Number(e.target.value);
+    setSelectedPlate(newPlate);
+    if (highlightedCards.length > 0) {
+      const position = findCardPosition(highlightedCards[0], spreads[newPlate]);
+      if (position) {
+        setHighlightedPositions([position, ...getNext12Positions(position)]);
+      }
+    }
   };
 
   const handleBirthdateChange = (e) => {
-      e.preventDefault(); // Prevent the default form submission
+    e.preventDefault();
     const inputBirthdate = e.target.value;
     setBirthdate(inputBirthdate);
     const card = getCardForBirthday(inputBirthdate);
     if (card) {
       setHighlightedCards([card]);
+      const age = calculateAge(inputBirthdate);
+      const plate = age % 90;
+      setSelectedPlate(plate);
+      const position = findCardPosition(card, spreads[plate]);
+      if (position) {
+        setHighlightedPositions([position, ...getNext12Positions(position)]);
+      }
     } else {
       setHighlightedCards([]);
+      setHighlightedPositions([]);
     }
-    const age = calculateAge(inputBirthdate);
-    setSelectedPlate(age % 90); // Ensure age cycles back after 89
   };
-
+  const resetToYearlySpread = () => {
+    if (birthdate) {
+      const card = getCardForBirthday(birthdate);
+      if (card) {
+        setHighlightedCards([card]);
+        const age = calculateAge(birthdate);
+        const plate = age % 90;
+        setSelectedPlate(plate);
+        const position = findCardPosition(card, spreads[plate]);
+        if (position) {
+          setHighlightedPositions([position, ...getNext12Positions(position)]);
+        }
+        // Reset weekly planet cards
+        setWeeklyPlanetCards([]);
+      } else {
+        setHighlightedCards([]);
+        setHighlightedPositions([]);
+        setWeeklyPlanetCards([]);
+      }
+    }
+  };
+  
   const handleCardClick = (card) => {
     setClickedCards((prevClickedCards) => {
       if (prevClickedCards.includes(card)) {
@@ -233,7 +331,8 @@ const App = () => {
     setModalIsOpen(false);
     setModalCardData(null);
   };
-const handleWeeklyPlateClick = () => {
+
+  const handleWeeklyPlateClick = () => {
     if (birthdate) {
       const weeklyPlateNumber = calculateWeeklyNumber(birthdate);
       setSelectedPlate(weeklyPlateNumber);
@@ -242,8 +341,26 @@ const handleWeeklyPlateClick = () => {
       const card = getCardForBirthday(birthdate);
       if (card) {
         setHighlightedCards([card]);
+        const position = findCardPosition(card, spreads[weeklyPlateNumber]);
+        if (position) {
+          const next12Positions = getNext12Positions(position);
+          setHighlightedPositions([position, ...next12Positions]);
+
+          const planetCards = next12Positions.slice(0, 7).map(pos => {
+            const foundCard = spreads[weeklyPlateNumber].flat().find(cell => parseInt(cell.staticData[2]) === pos);
+            return foundCard ? foundCard.value : '';
+          });
+          setWeeklyPlanetCards(planetCards);
+
+          const birthDateObj = new Date(birthdate);
+          const calculatedPlanetaryDays = calculatePlanetaryDays(birthDateObj);
+          setPlanetaryDays(calculatedPlanetaryDays);
+        }
       } else {
         setHighlightedCards([]);
+        setHighlightedPositions([]);
+        setWeeklyPlanetCards([]);
+        setWeeklyPlanetDates([]);
       }
     }
   };
@@ -259,20 +376,39 @@ const handleWeeklyPlateClick = () => {
     const currentWeeklyNumber = parseInt(B * 90);
     return currentWeeklyNumber;
   };
-const handleSevenWeeklyPlateClick = () => {
+
+  const handleSevenWeeklyPlateClick = () => {
     if (birthdate) {
       const weeklySevenPlateNumber = calculateSevenWeeklyNumber(birthdate);
       setSelectedPlate(weeklySevenPlateNumber);
       setClickedCards([]);
-
+  
       const card = getCardForBirthday(birthdate);
       if (card) {
         setHighlightedCards([card]);
+        const position = findCardPosition(card, spreads[weeklySevenPlateNumber]);
+        if (position) {
+          const next12Positions = getNext12Positions(position);
+          setHighlightedPositions([position, ...getNext12Positions(position)]);
+  
+          // Get the cards for the 1st through 7th positions (7 Week Spread)
+          const planetCards = next12Positions.slice(0, 7).map(pos => {
+            const foundCard = spreads[weeklySevenPlateNumber].flat().find(cell => parseInt(cell.staticData[2]) === pos);
+            return foundCard ? foundCard.value : '';
+          });
+          setWeeklyPlanetCards(planetCards);
+  
+          // Since you're not showing the planetary days anymore, we don't need to set dates.
+          // If you wish to add planetary dates, you can do so here using the same logic as before.
+        }
       } else {
         setHighlightedCards([]);
+        setHighlightedPositions([]);
+        setWeeklyPlanetCards([]);
       }
     }
   };
+  
 
   const calculateSevenWeeklyNumber = (birthdate) => {
     const birth = new Date(birthdate);
@@ -285,117 +421,187 @@ const handleSevenWeeklyPlateClick = () => {
     const currentSevenWeeklyNumber = parseInt(B * 90);
     return currentSevenWeeklyNumber;
   };
-  return (
-    <div className="App">
-      <h1>Planetary Table</h1>
-      <label>
-        Select Plate:
-        <select onChange={handlePlateChange} value={selectedPlate}>
-          {spreads.map((_, index) => (
-            <option value={index} key={index}>
-              Plate {index}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        Enter Birthdate:
-        <input type="date" value={birthdate} onChange={handleBirthdateChange} />
-      </label>      <button onClick={handleWeeklyPlateClick}>Show Weekly Plate</button> <button onClick={handleSevenWeeklyPlateClick}>Show 7 Weekly Plate</button>
 
-      <table border="1">
-        <tbody>
-          {spreads[selectedPlate].map((row, rowIndex) => (
-            <tr key={rowIndex}>
-              {row.map((cell, cellIndex) => (
+  return (
+    <ChakraProvider>
+      <Box className="App" p={5}>
+        <VStack spacing={4} align="stretch" mb={6} maxWidth="550px" margin="auto">
+          <Heading as="h1" size="xl" textAlign="center">
+            Planetary Table
+          </Heading>
+          <Flex direction={{ base: "column", md: "row" }} justify="space-between" align="center" wrap="wrap" gap={4}>
+            <Box flex="1">
+              <Select onChange={handlePlateChange} value={selectedPlate}>
+                {spreads.map((_, index) => (
+                  <option value={index} key={index}>
+                    Plate {index}
+                  </option>
+                ))}
+              </Select>
+            </Box>
+            <Box flex="1">
+              <Input
+                type="date"
+                value={birthdate}
+                onChange={handleBirthdateChange}
+                placeholder="Enter Birthdate"
+              />
+            </Box>
+            <Box flex="1">
+              <Select
+                onChange={(e) => {
+                  const selectedAction = e.target.value;
+                  if (selectedAction === "weekly") {
+                    handleWeeklyPlateClick();
+                  } else if (selectedAction === "sevenWeekly") {
+                    handleSevenWeeklyPlateClick();
+                  } else if (selectedAction === "resetYearly") {
+                    resetToYearlySpread();
+                  }
+                }}
+              >
+                <option value="">Select an Action</option>
+                <option value="weekly">Show Weekly Plate</option>
+                <option value="sevenWeekly">Show 7 Weekly Plate</option>
+                <option value="resetYearly">Reset to Yearly Spread</option>
+              </Select>
+            </Box>
+          </Flex>
+        </VStack>
+
+        <table border="1">
+          <tbody>
+            {spreads[selectedPlate].map((row, rowIndex) => (
+              <tr key={rowIndex}>
+                {row.map((cell, cellIndex) => (
+                  <td
+                    key={cellIndex}
+                    onClick={() => handleCardClick(cell.value)}
+                    style={{
+                      border: highlightedCards.includes(cell.value) || highlightedPositions.includes(parseInt(cell.staticData[2]))
+                        ? '3px solid black'
+                        : '1px solid black',
+                      textAlign: 'center',
+                      color: isPlanetSymbol(cell.value) ? 'red' : getCardColor(cell.value),
+                      backgroundColor: highlightedCards.includes(cell.value)
+                        ? 'yellow'
+                        : highlightedPositions.includes(parseInt(cell.staticData[2]))
+                        ? '#f2f2f2'
+                        : clickedCards.includes(cell.value)
+                        ? 'yellow'
+                        : 'white',
+                      position: 'relative',
+                    }}
+                  >
+                    {cell.value !== 'x' ? (
+                      <>
+                        {cell.value}
+                        {!isPlanetSymbol(cell.value) && (
+                          <div className="static-data">
+                            <div style={{ color: getCardColor(cell.staticData[0]) }}>{cell.staticData[0]}</div>
+                            <div style={{ color: getCardColor(cell.staticData[1]) }}>{cell.staticData[1]}</div>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      cell.value
+                    )}
+                  </td>
+                ))}
+              </tr>
+            ))}
+            <tr>
+              {['♆', '♅', '♄', '♃', '♂', '♀', '☿', ''].map((planet, index) => (
                 <td
-                  key={cellIndex}
-                  onClick={() => handleCardClick(cell.value)}
+                  key={index}
                   style={{
                     border: '1px solid black',
                     textAlign: 'center',
-                    color: isPlanetSymbol(cell.value) ? 'red' : getCardColor(cell.value),
-                    backgroundColor: highlightedCards.includes(cell.value) || clickedCards.includes(cell.value) ? 'yellow' : 'white',
-                    position: 'relative',
+                    color: 'red', // All planets are in red
+                    position: 'relative'
                   }}
                 >
-                  {cell.value !== 'x' ? (
-                    <>
-                      {cell.value}
-                      {!isPlanetSymbol(cell.value) && (
-                        <div className="static-data">
-                          <div style={{ color: getCardColor(cell.staticData[0]) }}>{cell.staticData[0]}</div>
-                          <div style={{ color: getCardColor(cell.staticData[1]) }}>{cell.staticData[1]}</div>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    cell.value
-                  )}
+                  {planet}
                 </td>
               ))}
             </tr>
-          ))}
-<tr>
-            {['♆', '♅', '♄', '♃', '♂', '♀', '☿', ''].map((planet, index) => (
-              <td
-                key={index}
-                style={{
-                  border: '1px solid black',
-                  textAlign: 'center',
-                  color: 'red', // All planets are in red
-                  position: 'relative'
-                }}
-              >
-                {planet}
-              </td>
-            ))}
-          </tr>
-        </tbody>
-      </table>
+          </tbody>
+        </table>
 
-      <Modal
-  isOpen={modalIsOpen}
-  onRequestClose={closeModal}
-  style={{
-    content: {
-      maxWidth: '600px',
-      height:'600px',
-      margin: '0 auto',
-    },
-  }}
->
-  {modalCardData && (
-    <div>
-      <h2>{modalCardData.value}</h2>
-      <p><strong>Keywords:</strong> {modalCardData.keywords}</p>
-      <p><strong>Dates:</strong> {modalCardData.dates}</p>
-      {modalCardData.staticData && (
-        <>
-<hr/>
-          <h3>Displacing: {modalCardData.displacingCard.staticData[1]}</h3>
-          {modalCardData.displacingCard && (
-            <>
-              <p><strong>Displacing Card Position:</strong> {modalCardData.displacingCard.position}</p>
-              <p><strong>Displacing Keywords:</strong> {modalCardData.displacingCard.keywords}</p>
-              <p><strong>Displacing Dates:</strong> {modalCardData.displacingCard.dates}</p>
-            </>
+        {weeklyPlanetCards.length > 0 && (
+          <div className="weekly-planet-cards" style={{ marginTop: '20px', textAlign: 'center' }}>
+            <h2>{selectedPlate === calculateSevenWeeklyNumber(birthdate) ? '7 Week Spread' : 'Weekly Planet Cards'}</h2>
+            <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '5px' }}>
+              {weeklyPlanetCards.map((card, index) => (
+                <div key={index} style={{ textAlign: 'center', width: '60px' }}>
+                  <div style={{
+                    border: '1px solid black',
+                    padding: '5px',
+                    marginBottom: '2px',
+                    backgroundColor: highlightedCards.includes(card) ? 'yellow' : 'white',
+                    color: getCardColor(card)
+                  }}>
+                    {card}
+                  </div>
+                  <div style={{ fontSize: '0.8em' }}>{['Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune'][index]}</div>
+                </div>
+              ))}
+            </div>
+            <Button mt={4} colorScheme="blue" onClick={() => setIsReadingPanelOpen(true)}>
+              Get Weekly Reading
+            </Button>
+          </div>
+        )}
+
+        <Modal
+          isOpen={modalIsOpen}
+          onRequestClose={closeModal}
+          style={{
+            content: {
+              maxWidth: '600px',
+              height:'600px',
+              margin: '0 auto',
+            },
+          }}
+        >
+          {modalCardData && (
+            <div>
+              <h2>{modalCardData.value}</h2>
+              <p><strong>Keywords:</strong> {modalCardData.keywords}</p>
+              <p><strong>Dates:</strong> {modalCardData.dates}</p>
+              {modalCardData.staticData && (
+                <>
+                  <hr/>
+                  <h3>Displacing: {modalCardData.displacingCard.staticData[1]}</h3>
+                  {modalCardData.displacingCard && (
+                    <>
+                      <p><strong>Displacing Card Position:</strong> {modalCardData.displacingCard.position}</p>
+                      <p><strong>Displacing Keywords:</strong> {modalCardData.displacingCard.keywords}</p>
+                      <p><strong>Displacing Dates:</strong> {modalCardData.displacingCard.dates}</p>
+                    </>
+                  )}
+                  <hr/>
+                  <h3>Next Displacement Card: {modalCardData.displacingCard.staticData[0]}</h3>
+                  {modalCardData.staticCard1 && (
+                    <>
+                      <p><strong>Static Keywords:</strong> {modalCardData.staticCard1.keywords}</p>
+                      <p><strong>Static Dates:</strong> {modalCardData.staticCard1.dates}</p>
+                    </>
+                  )}
+                </>
+              )}
+              <button onClick={closeModal}>Close</button>
+            </div>
           )}
-<hr/>
-          <h3>Next Displacement Card: {modalCardData.displacingCard.staticData[0]}</h3>
-          {modalCardData.staticCard1 && (
-            <>
-              <p><strong>Static Keywords:</strong> {modalCardData.staticCard1.keywords}</p>
-              <p><strong>Static Dates:</strong> {modalCardData.staticCard1.dates}</p>
-            </>
-          )}
-        </>
-      )}
-      <button onClick={closeModal}>Close</button>
-    </div>
-  )}
-</Modal>
-    </div>
+        </Modal>
+        <WeeklyReadingPanel
+          isOpen={isReadingPanelOpen}
+          onClose={() => setIsReadingPanelOpen(false)}
+          weeklyCards={weeklyPlanetCards}
+          cardData={cardData2}
+        />
+      </Box>
+    </ChakraProvider>
   );
 };
 
