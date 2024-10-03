@@ -147,8 +147,9 @@ h3, h2 {
   color:#d85118;
 }
 p {
-  padding: 10px;
-  font-size: 12px;
+    font-size: 12px;
+    padding: 10px;
+    text-align: justify;
 }
 hr {
   border-top-width: 1px;
