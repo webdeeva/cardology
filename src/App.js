@@ -5,8 +5,8 @@ import cardData from './cardData.json';
 import Modal from 'react-modal';
 import { ChakraProvider, Box, Heading, Select, Input, Flex, VStack, Button } from '@chakra-ui/react';
 import WeeklyReadingPanel from './components/WeeklyReadingPanel';
+import SevenWeeklyPanel from './components/SevenWeeklyPanel';
 import cardData2 from './cards.json';
-
 
 // Static Data Mapping
 const staticDataMapping = {
@@ -63,7 +63,6 @@ const staticDataMapping = {
   51: { value1: '9♠', value2: '6♠' },
   52: { value1: '10♠', value2: 'Q♥' },
 };
-
 
 // Initial setup for Age 0 spread
 const initialSpread = [
@@ -236,8 +235,6 @@ function calculatePlanetaryDays(birthDate) {
   return planetaryDays;
 }
 
-
-
 const App = () => {
   const [selectedPlate, setSelectedPlate] = useState(0);
   const [birthdate, setBirthdate] = useState('');
@@ -250,7 +247,10 @@ const App = () => {
   const [weeklyPlanetDates, setWeeklyPlanetDates] = useState([]);
   const spreads = generateAllSpreads();
   const [planetaryDays, setPlanetaryDays] = useState([]);
-  const [isReadingPanelOpen, setIsReadingPanelOpen] = useState(false);
+  const [isWeeklyReadingPanelOpen, setIsWeeklyReadingPanelOpen] = useState(false); // Separate state for weekly reading panel
+  const [isSevenWeeklyPanelOpen, setIsSevenWeeklyPanelOpen] = useState(false); // Separate state for 7 week reading panel
+  const [selectedAction, setSelectedAction] = useState(''); // Added state for selected action
+  const [displacingCard, setDisplacingCard] = useState(null); // Track displacing card
 
 
   const handlePlateChange = (e) => {
@@ -268,6 +268,7 @@ const App = () => {
     e.preventDefault();
     const inputBirthdate = e.target.value;
     setBirthdate(inputBirthdate);
+    localStorage.setItem('birthdate', inputBirthdate); // Store birthdate in local storage
     const card = getCardForBirthday(inputBirthdate);
     if (card) {
       setHighlightedCards([card]);
@@ -311,7 +312,10 @@ const App = () => {
         const { rowIndex, colIndex } = findCardPositionInSpread(card, spreads[selectedPlate]);
         const staticDataPosition = spreads[selectedPlate][rowIndex][colIndex].staticData[2];
         const staticData = staticDataMapping[staticDataPosition];
-
+  
+        const displacingCardValue = staticData.value2; // Get displacing card value
+        setDisplacingCard(displacingCardValue); // Set the displacing card in state
+  
         setModalCardData({
           value: card,
           staticData: staticData || { value1: '', value2: '' },
@@ -326,7 +330,7 @@ const App = () => {
       }
     });
   };
-
+  
   const closeModal = () => {
     setModalIsOpen(false);
     setModalCardData(null);
@@ -346,7 +350,7 @@ const App = () => {
           const next12Positions = getNext12Positions(position);
           setHighlightedPositions([position, ...next12Positions]);
 
-          const planetCards = next12Positions.slice(0, 7).map(pos => {
+          const planetCards = next12Positions.slice(0, 12).map(pos => {
             const foundCard = spreads[weeklyPlateNumber].flat().find(cell => parseInt(cell.staticData[2]) === pos);
             return foundCard ? foundCard.value : '';
           });
@@ -391,8 +395,8 @@ const App = () => {
           const next12Positions = getNext12Positions(position);
           setHighlightedPositions([position, ...getNext12Positions(position)]);
   
-          // Get the cards for the 1st through 7th positions (7 Week Spread)
-          const planetCards = next12Positions.slice(0, 7).map(pos => {
+          // Get the cards for the 1st through 12th positions (7 Week Spread)
+          const planetCards = next12Positions.slice(0, 12).map(pos => {
             const foundCard = spreads[weeklySevenPlateNumber].flat().find(cell => parseInt(cell.staticData[2]) === pos);
             return foundCard ? foundCard.value : '';
           });
@@ -450,12 +454,13 @@ const App = () => {
             <Box flex="1">
               <Select
                 onChange={(e) => {
-                  const selectedAction = e.target.value;
-                  if (selectedAction === "weekly") {
+                  const action = e.target.value;
+                  setSelectedAction(action); // Update selected action
+                  if (action === "weekly") {
                     handleWeeklyPlateClick();
-                  } else if (selectedAction === "sevenWeekly") {
+                  } else if (action === "sevenWeekly") {
                     handleSevenWeeklyPlateClick();
-                  } else if (selectedAction === "resetYearly") {
+                  } else if (action === "resetYearly") {
                     resetToYearlySpread();
                   }
                 }}
@@ -517,6 +522,7 @@ const App = () => {
                   style={{
                     border: '1px solid black',
                     textAlign: 'center',
+                    fontWeight: 'bold',
                     color: 'red', // All planets are in red
                     position: 'relative'
                   }}
@@ -532,7 +538,7 @@ const App = () => {
           <div className="weekly-planet-cards" style={{ marginTop: '20px', textAlign: 'center' }}>
             <h2>{selectedPlate === calculateSevenWeeklyNumber(birthdate) ? '7 Week Spread' : 'Weekly Planet Cards'}</h2>
             <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '5px' }}>
-              {weeklyPlanetCards.map((card, index) => (
+              {weeklyPlanetCards.slice(0, 7).map((card, index) => (
                 <div key={index} style={{ textAlign: 'center', width: '60px' }}>
                   <div style={{
                     border: '1px solid black',
@@ -547,9 +553,44 @@ const App = () => {
                 </div>
               ))}
             </div>
-            <Button mt={4} colorScheme="blue" onClick={() => setIsReadingPanelOpen(true)}>
-              Get Weekly Reading
-            </Button>
+            <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: '5px', marginTop: '10px' }}>
+              {weeklyPlanetCards.slice(7, 12).map((card, index) => (
+                <div key={index} style={{ textAlign: 'center', width: '60px' }}>
+                  <div style={{
+                    border: '1px solid black',
+                    padding: '5px',
+                    marginBottom: '2px',
+                    backgroundColor: highlightedCards.includes(card) ? 'yellow' : 'white',
+                    color: getCardColor(card)
+                  }}>
+                    {card}
+                  </div>
+                  <div style={{ fontSize: '0.8em' }}>{['Pluto', 'Reward', 'Peak', 'Moon', 'Earth/X'][index]}</div>
+                </div>
+              ))}
+            </div>
+            {selectedAction === "weekly" && (
+              <Button 
+                mt={4} 
+                backgroundColor="rgb(229, 62, 62)" 
+                color="white" 
+                _hover={{ backgroundColor: "rgb(229, 62, 62)", opacity: 0.8 }}
+                onClick={() => setIsWeeklyReadingPanelOpen(true)}
+              >
+                Get Weekly Reading
+              </Button>
+            )}
+            {selectedAction === "sevenWeekly" && (
+              <Button 
+                mt={4} 
+                backgroundColor="rgb(229, 62, 62)" 
+                color="white" 
+                _hover={{ backgroundColor: "rgb(229, 62, 62)", opacity: 0.8 }}
+                onClick={() => setIsSevenWeeklyPanelOpen(true)}
+              >
+                Get 7 Week Reading
+              </Button>
+            )}
           </div>
         )}
 
@@ -595,10 +636,19 @@ const App = () => {
           )}
         </Modal>
         <WeeklyReadingPanel
-          isOpen={isReadingPanelOpen}
-          onClose={() => setIsReadingPanelOpen(false)}
+  isOpen={isWeeklyReadingPanelOpen}
+  onClose={() => setIsWeeklyReadingPanelOpen(false)}
+  weeklyCards={weeklyPlanetCards}
+  cardData={cardData2}
+  displacingCard={displacingCard} // Pass displacing card as a prop
+/>
+
+        <SevenWeeklyPanel
+          isOpen={isSevenWeeklyPanelOpen}
+          onClose={() => setIsSevenWeeklyPanelOpen(false)}
           weeklyCards={weeklyPlanetCards}
           cardData={cardData2}
+          displacingCard={displacingCard} // Pass displacing card as a prop
         />
       </Box>
     </ChakraProvider>
