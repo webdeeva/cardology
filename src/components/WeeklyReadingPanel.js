@@ -1,5 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Button, Text, VStack, CloseButton, Spinner } from '@chakra-ui/react';
+import ReactMarkdown from 'react-markdown';
+
+
+const mapCardToFullName = (card) => {
+  // Implement the logic to map card to full name
+  return card; // Placeholder
+};
+
+const findCardPosition = (card, spread) => {
+  for (let row of spread) {
+    for (let cell of row) {
+      if (cell.value === card) {
+        return parseInt(cell.staticData[2]);
+      }
+    }
+  }
+  return null;
+};
 
 const WeeklyReadingPanel = ({ isOpen, onClose, weeklyCards, cardData }) => {
   const [reading, setReading] = useState('');
@@ -10,21 +28,6 @@ const WeeklyReadingPanel = ({ isOpen, onClose, weeklyCards, cardData }) => {
     console.log('cardData:', cardData);
   }, [weeklyCards, cardData]);
 
-  const mapCardToFullName = (card) => {
-    const ranks = {
-      'A': 'Ace', 'K': 'King', 'Q': 'Queen', 'J': 'Jack',
-      '10': 'Ten', '9': 'Nine', '8': 'Eight', '7': 'Seven',
-      '6': 'Six', '5': 'Five', '4': 'Four', '3': 'Three', '2': 'Two'
-    };
-    const suits = {
-      '♠': 'Spades', '♥': 'Hearts', '♦': 'Diamonds', '♣': 'Clubs'
-    };
-    
-    const rank = card.slice(0, -1);
-    const suit = card.slice(-1);
-    
-    return `${ranks[rank]} of ${suits[suit]}`;
-  };
 
   const generateReading = async () => {
     if (!weeklyCards || !cardData) {
@@ -46,34 +49,27 @@ const WeeklyReadingPanel = ({ isOpen, onClose, weeklyCards, cardData }) => {
       return `${fullCardName}: ${cardDetails.Description}`;
     }).join('\n\n');
 
-    const prompt = `Based on the following cards for a weekly reading, provide an insightful and detailed interpretation for the week ahead:\n\n${cardInfo}`;
-
+    const prompt = `Based on the following cards for a weekly reading, provide an insightful and detailed interpretation for the week  ahead:\n\n${cardInfo} each card has a label and should be used to give more insight to the interpretation - ( in the following order ) Mercury, Venus, Mars, Jupiter, Saturn, Uranus, Neptune( the obvious astrological influences)- then the remaining cards Pluto, Reward ( the gift for overcoming the challenges of the Pluto card), Peak ( the high point of the week), Moon ( astrological influence), Earth/X ( what we transform into over the course of the week)`;
+    const API_URL = 'https://weeklyserver-tavoniaevans.replit.app/api';
     try {
-      console.log('Sending prompt:', prompt);
-      const response = await fetch('/api/generate-reading', {
+      const response = await fetch(API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ prompt }),
       });
-
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('API response not OK:', response.status, errorText);
-        throw new Error(`API request failed: ${response.status} ${errorText}`);
+        throw new Error(`API request failed: ${response.status}`);
       }
-
       const data = await response.json();
-      console.log('API response:', data);
       setReading(data.reading);
     } catch (error) {
-      console.error('Error generating reading:', error);
       setReading(`Failed to generate reading. Error: ${error.message}`);
     } finally {
       setIsLoading(false);
     }
-  };
+  }
 
   if (!isOpen) return null;
 
@@ -93,17 +89,17 @@ const WeeklyReadingPanel = ({ isOpen, onClose, weeklyCards, cardData }) => {
       <VStack spacing={4} align="stretch">
         <Text fontSize="xl" fontWeight="bold">Weekly Reading</Text>
         <Button 
-          colorScheme="blue" 
-          onClick={generateReading} 
+          colorScheme="red" 
+          onClick={generateReading}
           isLoading={isLoading}
           loadingText="Generating..."
         >
-          Generate Reading
+          Generate Reading 
         </Button>
         {isLoading && <Spinner />}
         {reading && (
           <Box mt={4}>
-            <Text whiteSpace="pre-wrap">{reading}</Text>
+            <ReactMarkdown>{reading}</ReactMarkdown>
           </Box>
         )}
       </VStack>
