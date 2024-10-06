@@ -45,7 +45,7 @@ const SevenWeeklyPanel = ({ isOpen, onClose, weeklyCards, cardData }) => {
       return `${fullCardName}: ${cardDetails.Description}`;
     }).join('\n\n');
   
-    const prompt = `Based on the following cards for a 7 week reading, provide an insightful and detailed interpretation for the 7 week cycle ahead:\n\n${cardInfo} each card has a label and should be used to give more insight to the interpretation - ( in the following order ) Mercury, Venus, Mars, Jupiter, Saturn, Uranus, Neptune( the obvious astrological influences)- then the remaining cards Pluto, Reward ( the gift for overcoming the challenges of the Pluto card), Peak ( the high point of the week), Moon ( astrological influence), Earth/X ( what we transform into over the course of the 7 weeks)`;
+    const prompt = `Based on the following cards for a 7 week reading, provide an insightful and detailed interpretation for the 7 week cycle ahead:\n\n${cardInfo} each card has a label and should be used to give more insight to the interpretation - ( in the following order ) Mercury, Venus, Mars, Jupiter, Saturn, Uranus, Neptune( the obvious astrological influences)- then the remaining cards Pluto, Reward ( the gift for overcoming the challenges of the Pluto card), Peak ( the high point of the week), Moon ( astrological influence), Earth/X ( what we transform into over the course of the 7 weeks). Do not use "In the realm of"`;
     
     const API_URL = 'https://weeklyserver-tavoniaevans.replit.app/api';
     try {
